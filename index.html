@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv=“Content-Type” content=“text/html; charset=utf-8”>
+  <title>MultiTimer v1.0</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/darkly/bootstrap.min.css" integrity="sha384-nNK9n28pDUDDgIiIqZ/MiyO3F4/9vsMtReZK39klb/MtkZI3/LtjSjlmyVPS3KdN" crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.3.0/NoSleep.min.js" integrity="sha512-O2DYbq0bhPTYvlViAwVpcIGab15lsG3VCU5/aSCmjYYKm+XdxD5hShZUQIDEMEx2pIqvAkfMrGlBhelPtbGBYA==" crossorigin="anonymous"></script>
+  <script src="http://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/vue"></script> -->
+  <script>
+    var noSleep = new NoSleep();
+  </script>
+  <style>
+    html {
+      height: 100%;
+    }
+    body {
+      padding: 10px;
+      transform-origin: top left;
+      font-size: 2vh;
+      height: 100%;
+    }
+
+    #app {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .top-buttons {
+      margin-top: 1em;
+    }
+
+    .tbl {
+      margin: auto;
+      margin-top: 1vh;
+      margin-bottom: 1vh;
+      width: 100%;
+      max-width: 800px;
+      font-size: 2vmax;
+    }
+
+    @media (orientation: portrait) {
+      .tbl {
+        font-size: 3vmax;
+      }
+    }
+
+    tr {
+      transition: background .2s;
+    }
+
+    td:first-child {
+      width: 2em;
+    }
+
+    td:nth-child(2) {
+      width: 4em;
+    }
+
+    td:nth-child(3) {
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    td:nth-child(3) input {
+      width: 100%;
+      border: none;
+      background-color: transparent;
+    }
+
+    .main-buttons {
+      margin-top: auto;
+      width: 100%;
+      padding: 5vw;
+      text-align: center;
+    }
+
+    .btn {
+      font-size: 2vmax;
+    }
+
+    .top-buttons .btn {
+      padding: 0.1em 1em;
+    }
+
+    .main-buttons .btn {
+      width:30%;
+    }
+
+    tr.active {
+      background: #555;
+    }
+
+    tr.active.running {
+      background: rgb(36, 126, 0);
+    }
+
+
+    td input {
+      color: white;
+    }
+
+    h1 {
+      font-size: 3vmax
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div>
+      <h1>MultiTimer v1.0</h1>
+    </div>
+    <div class="top-buttons">
+    <button :disabled="!!interval" class="btn btn-dark" v-on:click="decreasePlayers">-</button>
+    <button :disabled="!!interval" class="btn btn-dark" v-on:click="increasePlayers">+</button>
+  </div>
+    <div>
+      <table class="tbl">
+        <tr class="main" v-on:click="selectPlayer(i)" v-bind:class="{ running:interval, active: current == i-1 }" v-for="i in count">
+          <td><span v-if="this.slowest == i">*</span></td>
+          <td>{{timers[i-1]/1000.0}}</td>
+          <td><input :disabled="!!interval" type="text" v-model="names[i-1]"></input></td>
+        </tr>
+      </table>
+    </div>
+    <div class="main-buttons">
+      <button class="btn btn-success" v-on:click="start">{{interval ? 'Next' : total() ? 'Resume' : 'Start'}}</button>
+      <button :disabled="!interval" class="btn btn-danger" v-on:click="stop">Stop</button>
+      <button :disabled="!!interval" class="btn btn-primary" v-on:click="reset">Reset</button>
+    </div>
+  </div>
+
+  <script>
+    var app = new Vue({
+      el: '#app',
+      data: {
+        maxPlayers: 8,
+        count: 4,
+        current: 0,
+        names: ['Dov', 'Rocco', 'Ple', 'Daniel', 'Guest-1', 'Guest-2', 'Guest-3', 'Guest-4'],
+        timers: [0, 0, 0, 0, 0, 0, 0, 0],
+        interval: 0,
+        slowest: -1,
+        slowestTime: 0
+      },
+      methods: {
+        decreasePlayers: function() {
+          this.stop();
+          this.count = Math.max(2, this.count - 1);
+          if (this.current >= this.count - 1) {
+            this.current = this.count - 1;
+          }
+        },
+        increasePlayers: function() {
+          this.stop();
+          this.count = Math.min(this.maxPlayers, this.count + 1);
+        },
+        start: function() {
+          for (let i=this.count; i<this.maxPlayers; i++) {
+            Vue.set(this.timers, i, 0);
+          }
+          if (this.interval) {
+            this.current += 1;
+            if (this.current == this.count) {
+              this.current = 0;
+            }
+          } else {
+            this.stop();
+            noSleep.enable();
+            this.interval = setInterval(() => {
+              const newTime = this.timers[this.current] + 100;
+              Vue.set(this.timers, this.current, newTime);
+              if (newTime > this.slowestTime) {
+                this.slowestTime = newTime;
+                this.slowest = this.current;
+              }
+            }, 100);
+          }
+        },
+        stop: function() {
+          noSleep.disable();
+          clearInterval(this.interval);
+          this.interval = 0
+        },
+        reset: function() {
+          if (this.interval) {
+            this.stop();
+          } else {
+            for (i=0; i<this.timers.length; i++) {
+              Vue.set(this.timers, i, 0);
+              this.current = 0;
+            }
+            this.slowest = -1;
+            this.slowestTime = 0;
+        }
+        },
+        total: function() {
+          return this.timers.reduce((a,b)=>a+b, 0);
+        },
+        selectPlayer: function(i) {
+          if (!this.interval) {
+            this.current = i-1;
+          }
+        }
+      }
+    })
+  </script>
+    
+</body>
+</html>
